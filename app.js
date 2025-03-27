@@ -8,7 +8,6 @@ const calculateButton = document.getElementById("calculateButton");
 const sideAInput = document.getElementById("sideA");
 const sideBInput = document.getElementById("sideB");
 const sideCInput = document.getElementById("sideC");
-console.log(sideAInput.val == undefined);
 
 const translations = {
     title: {
@@ -41,7 +40,7 @@ const translations = {
             TH: "ทศนิยมต้องมีไม่เกินสองตำแหน่ง"
         },
         numericError: {
-            EN: "Error: Please enter length.",
+            EN: "Error: Please enter your input.",
             TH: "กรุณากรอกความยาวด้าน"
         },
         positiveError: {
@@ -52,6 +51,10 @@ const translations = {
             EN: "Error: It's not a triangle.",
             TH: "ไม่ใช่สามเหลี่ยม"
         },
+        stringError: {
+            EN: "Error. Please enter numeric values.",
+            TH: "โปรดกรอกตัวเลข"
+        }
      },
     results: {
         equilateral: {
@@ -97,6 +100,9 @@ function updateLanguage(lang) {
         case "triangleError":
             resultDiv.textContent = translations.errors.triangleError[lang];
             break;
+        case "stringError":
+            resultDiv.textContent = translations.errors.stringError[lang];
+            break;
         case "equilateral":
             resultDiv.textContent = translations.results.equilateral[lang];
             break;
@@ -112,8 +118,6 @@ function updateLanguage(lang) {
         default:
             resultDiv.textContent = '';
     }
-    console.log(currentResult);
-    // calculateTriangle();
 }
 
 languageToggle.addEventListener("click", () => {
@@ -121,72 +125,175 @@ languageToggle.addEventListener("click", () => {
     updateLanguage(currentLanguage);
 });
 
+
 function inputValidate(side1, side2, side3){
-    // console.log("hello");
-    // console.log(side1.val == undefined);
-    const sideAValue = side1.value;
-    const sideBValue = side2.value;
-    const sideCValue = side3.value;
+    const sideAValue = side1.value.trim();
+    const sideBValue = side2.value.trim();
+    const sideCValue = side3.value.trim();
 
-    const sideA = parseFloat(sideAValue);
-    const sideB = parseFloat(sideBValue);
-    const sideC = parseFloat(sideCValue); 
+    if (sideAValue === '' || sideBValue === '' || sideCValue === '') {
+        resultDiv.textContent = translations.errors.numericError[currentLanguage];
+        resultDiv.style.color = "red";
+        currentResult = "numericError";
+        return false;
+    }
 
-    const decimalCheck = /^\d+(\.\d{1,2})?$/;
-    if (!decimalCheck.test(sideAValue) || !decimalCheck.test(sideBValue) || !decimalCheck.test(sideCValue)) {
-        if (isNaN(sideA) || isNaN(sideB) || isNaN(sideC)) {
-            resultDiv.textContent = translations.errors.numericError[currentLanguage];
-            resultDiv.style.color = "red";
-            currentResult = "numericError";
-            return;
-        }
-        
+    if (/[a-zA-Z]/.test(sideAValue) || /[a-zA-Z]/.test(sideBValue) || /[a-zA-Z]/.test(sideCValue)) {
+        resultDiv.textContent = translations.errors.stringError[currentLanguage];
+        resultDiv.style.color = "red";
+        currentResult = "stringError";
+        return false;
+    }
+
+    let sideA, sideB, sideC;
+    
+    try {
+        sideA = evaluateExpression(sideAValue);
+        sideB = evaluateExpression(sideBValue);
+        sideC = evaluateExpression(sideCValue);
+    } catch (error) {
+        resultDiv.textContent = translations.errors.numericError[currentLanguage];
+        resultDiv.style.color = "red";
+        currentResult = "numericError";
+        return false;
+    }
+
+    if (isNaN(sideA) || isNaN(sideB) || isNaN(sideC)) {
+        resultDiv.textContent = translations.errors.numericError[currentLanguage];
+        resultDiv.style.color = "red";
+        currentResult = "numericError";
+        return false;
+    }
+
+    if (!checkDecimalPlaces(sideA) || !checkDecimalPlaces(sideB) || !checkDecimalPlaces(sideC)) {
         resultDiv.textContent = translations.errors.decimalError[currentLanguage];
         resultDiv.style.color = "red";
         currentResult = "decimalError";
-        console.log("here");
-        return;
+        return false;
     }
-
-    // if (!decimalCheck.test(sideAValue) || !decimalCheck.test(sideBValue) || !decimalCheck.test(sideCValue)) {
-    //     resultDiv.textContent = translations.errors.decimalError[currentLanguage];
-    //     resultDiv.style.color = "red";
-    //     currentResult = "decimalError";
-    //     return;
-    // }
 
     if (sideA <= 0 || sideB <= 0 || sideC <= 0) {
         resultDiv.textContent = translations.errors.positiveError[currentLanguage];
         resultDiv.style.color = "red";
         currentResult = "positiveError";
-        return;
+        return false;
     }
 
-    if (sideA + sideB <= sideC || sideA + sideC <= sideB || sideB + sideC <= sideA) {
-        resultDiv.textContent = translations.errors.triangleError[currentLanguage];
-        resultDiv.style.color = "red";
-        currentResult = "triangleError";
-        return;
+    side1.calculatedValue = sideA;
+    side2.calculatedValue = sideB;
+    side3.calculatedValue = sideC;
+
+    if (sideA === sideB && sideB === sideC) {
+        currentResult = "notError";
+        return true;
+    }
+
+    try {
+        const a = BigInt(sideA.replace('.', '').replace(/^0+/, ''));
+        const b = BigInt(sideB.replace('.', '').replace(/^0+/, ''));
+        const c = BigInt(sideC.replace('.', '').replace(/^0+/, ''));
+        
+        if (a + b <= c || a + c <= b || b + c <= a) {
+            resultDiv.textContent = translations.errors.triangleError[currentLanguage];
+            resultDiv.style.color = "red";
+            currentResult = "triangleError";
+            return false;
+        }
+    } catch (e) {
+        const a = Number(sideA);
+        const b = Number(sideB);
+        const c = Number(sideC);
+        
+        if (a === Infinity && b === Infinity && c === Infinity) {
+            currentResult = "notError";
+            return true;
+        } else if (a === Infinity || b === Infinity || c === Infinity) {
+            if ((a === Infinity && b === Infinity) || 
+                (a === Infinity && c === Infinity) || 
+                (b === Infinity && c === Infinity)) {
+                currentResult = "notError";
+                return true;
+            } else {
+                resultDiv.textContent = translations.errors.triangleError[currentLanguage];
+                resultDiv.style.color = "red";
+                currentResult = "triangleError";
+                return false;
+            }
+        } else if (a + b <= c || a + c <= b || b + c <= a) {
+            resultDiv.textContent = translations.errors.triangleError[currentLanguage];
+            resultDiv.style.color = "red";
+            currentResult = "triangleError";
+            return false;
+        }
     }
 
     currentResult = "notError";
+    return true;
+}
+
+function evaluateExpression(expr) {
+    expr = expr.replace(/\s+/g, '');
+    
+    if (/[^0-9+\-*/().]/g.test(expr)) {
+        throw new Error("Invalid characters in expression");
+    }
+    
+    try {
+        let result;
+        if (/^-?\d+(\.\d+)?$/.test(expr)) {
+            result = parseFloat(expr);
+        } else {
+            // Use Function to evaluate the expression.
+            result = Function('"use strict"; return (' + expr + ')')();
+        }
+    
+        const matches = expr.match(/(\d*\.\d+)/g);
+        let maxDecimals = 0;
+        if (matches) {
+            for (const m of matches) {
+                const decimals = m.split('.')[1].length;
+                maxDecimals = Math.max(maxDecimals, decimals);
+            }
+        }
+        
+        if (maxDecimals > 0) {
+            result = parseFloat(result.toFixed(maxDecimals));
+        }
+        
+        return result;
+    } catch (e) {
+        throw new Error("Invalid expression");
+    }
+}
+
+function checkDecimalPlaces(num) {
+    const strNum = num.toString();
+    if (strNum.includes('.')) {
+        const decimalPart = strNum.split('.')[1];
+        return decimalPart.length <= 2;
+    }
+    return true;
 }
 
 function calculateTriangle() {
-    inputValidate(sideAInput, sideBInput, sideCInput);
-
-    if(currentResult == "notError"){
-        const sideA = parseFloat(sideAInput.value);
-        const sideB = parseFloat(sideBInput.value);
-        const sideC = parseFloat(sideCInput.value);
+    if(inputValidate(sideAInput, sideBInput, sideCInput)){
+        const sideA = sideAInput.calculatedValue;
+        const sideB = sideBInput.calculatedValue;
+        const sideC = sideCInput.calculatedValue;
 
         if (sideA === sideB && sideB === sideC) {
             resultDiv.textContent = translations.results.equilateral[currentLanguage];
             currentResult = "equilateral";
-        } else if (sideA === sideB || sideB === sideC || sideA === sideC) {
-            resultDiv.textContent = translations.results.isosceles[currentLanguage];
-            currentResult = "isosceles";
-        } else if (sideA ** 2 + sideB ** 2 === sideC ** 2 || sideA ** 2 + sideC ** 2 === sideB ** 2 || sideB ** 2 + sideC ** 2 === sideA ** 2) {
+        } 
+        else if (sideA === sideB || sideB === sideC || sideA === sideC) {
+            if (isRightTriangle(sideA, sideB, sideC)) {
+                resultDiv.textContent = translations.results.right[currentLanguage];
+                currentResult = "right";
+            } else {
+                resultDiv.textContent = translations.results.isosceles[currentLanguage];
+                currentResult = "isosceles";
+            }
+        } else if (isRightTriangle(sideA, sideB, sideC)) {
             resultDiv.textContent = translations.results.right[currentLanguage];
             currentResult = "right";
         } else {
@@ -198,4 +305,41 @@ function calculateTriangle() {
     }
 }
 
+function isRightTriangle(a, b, c) {
+    // Sort sides in ascending order
+    const sides = [a, b, c].sort((x, y) => x - y);
+    const [side1, side2, side3] = sides;
+    
+    const computedHypotenuse = Math.hypot(side1, side2);
+    
+    const relativeEpsilon = 1e-10 * side3;
+    
+    console.log(`Computed hypotenuse: ${computedHypotenuse}`);
+    console.log(`Expected hypotenuse: ${side3}`);
+    console.log(`Difference: ${Math.abs(computedHypotenuse - side3)}`);
+    
+    return Math.abs(computedHypotenuse - side3) < relativeEpsilon;
+  }
+
 calculateButton.addEventListener("click", calculateTriangle);
+
+sideAInput.addEventListener("keypress", function(event) {
+    if (event.key === "Enter") {
+        event.preventDefault();
+        calculateTriangle();
+    }
+});
+
+sideBInput.addEventListener("keypress", function(event) {
+    if (event.key === "Enter") {
+        event.preventDefault();
+        calculateTriangle();
+    }
+});
+
+sideCInput.addEventListener("keypress", function(event) {
+    if (event.key === "Enter") {
+        event.preventDefault();
+        calculateTriangle();
+    }
+});
